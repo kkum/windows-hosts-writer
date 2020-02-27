@@ -1,3 +1,6 @@
 obj
 bin
 .vs/
+*.user
+deploy/app/
+!deploy/app/Dockerfile

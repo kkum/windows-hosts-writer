@@ -7,10 +7,8 @@ using System.Threading;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 
-namespace windows_hosts_writer
-{
-    class Program
-    {
+namespace windows_hosts_writer {
+    class Program {
         //Settings keys
         private const string ENV_ENDPOINT = "endpoint";
         private const string ENV_NETWORK = "network";
@@ -43,7 +41,6 @@ namespace windows_hosts_writer
         private static Dictionary<string, string> _termMaps = new Dictionary<string, string>();
         private static int _timerPeriod = 10000;
 
-
         //  Due to how windows container handle the terminate events in windows, there's
         //  not a clear-cut way to handle graceful exists.  Having to resort to this stuff
         //  isn't ideal, but the standard approaches of AppDomain.CurrentDomain.ProcessExit
@@ -53,8 +50,7 @@ namespace windows_hosts_writer
 
         internal delegate bool HandlerRoutine(CtrlTypes ctrlType);
 
-        internal enum CtrlTypes
-        {
+        internal enum CtrlTypes {
             CTRL_C_EVENT = 0,
             CTRL_BREAK_EVENT,
             CTRL_CLOSE_EVENT,
@@ -62,17 +58,14 @@ namespace windows_hosts_writer
             CTRL_SHUTDOWN_EVENT
         }
 
-        static void Main(string[] args)
-        {
+        static void Main(string[] args) {
 
-            if (Environment.GetEnvironmentVariable(ENV_HOSTPATH) != null)
-            {
+            if (Environment.GetEnvironmentVariable(ENV_HOSTPATH) != null) {
                 _hostsPath = Environment.GetEnvironmentVariable(ENV_HOSTPATH);
                 Console.Write($"Overriding hosts path '{_hostsPath}'");
             }
 
-            if (Environment.GetEnvironmentVariable(ENV_NETWORK) != null)
-            {
+            if (Environment.GetEnvironmentVariable(ENV_NETWORK) != null) {
                 _listenNetwork = Environment.GetEnvironmentVariable(ENV_NETWORK);
                 Console.Write($"Overriding listen network '{_listenNetwork}'");
             }
@@ -81,8 +74,7 @@ namespace windows_hosts_writer
                 Console.WriteLine("Listening to any network");
             }
 
-            if (Environment.GetEnvironmentVariable(ENV_SESSION) != null)
-            {
+            if (Environment.GetEnvironmentVariable(ENV_SESSION) != null) {
                 _sessionId = Environment.GetEnvironmentVariable(ENV_SESSION);
                 Console.Write($"Overriding Session Key  '{_sessionId}'");
             }
@@ -122,9 +114,7 @@ namespace windows_hosts_writer
             try
             {
                 _client = GetClient();
-            }
-            catch (Exception ex)
-            {
+            } catch (Exception ex) {
                 Log(
                     $"Something went wrong. Likely the Docker engine is not listening at [{_client.Configuration.EndpointBaseUri}] inside of the container.");
                 Log($"You can change that path through environment variable '{ENV_ENDPOINT}'");
@@ -132,8 +122,7 @@ namespace windows_hosts_writer
                 Log("Exception is " + ex.Message);
                 Log(ex.StackTrace);
 
-                if (ex.InnerException != null)
-                {
+                if (ex.InnerException != null) {
                     Log("InnerException is " + ex.InnerException.Message);
                     Log(ex.InnerException.StackTrace);
                 }
@@ -144,21 +133,17 @@ namespace windows_hosts_writer
 
             Log("Starting Windows Hosts Writer");
 
-
-
-            try
-            {
+            try {
                 _timer = new System.Timers.Timer(_timerPeriod);
 
-                _timer.Elapsed +=  (s, e)=>{ DoUpdate();} ;
+                _timer.Elapsed += (s, e) => { DoUpdate(); };
 
                 _timer.Start();
                 //_timer = new Timer((s) => DoUpdate(), null, 0, _timerPeriod);
 
                 var shutdown = new ManualResetEvent(false);
                 var complete = new ManualResetEventSlim();
-                var hr = new HandlerRoutine(type =>
-                {
+                var hr = new HandlerRoutine(type => {
                     Log($"ConsoleCtrlHandler got signal: {type}");
 
                     shutdown.Set();
@@ -179,59 +164,49 @@ namespace windows_hosts_writer
                 complete.Set();
 
                 GC.KeepAlive(hr);
-            }
-            catch (Exception ex)
-            {
+            } catch (Exception ex) {
                 Log($"Unhandled Exception: {ex.Message}");
                 Log(ex.StackTrace);
 
-                if (ex.InnerException != null)
-                {
+                if (ex.InnerException != null) {
                     Log("InnerException is " + ex.InnerException.Message);
                     Log(ex.InnerException.StackTrace);
                 }
             }
         }
 
-        private static void _timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
-        {
+        private static void _timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e) {
             throw new NotImplementedException();
         }
 
-        public static void DoUpdate()
-        {
+        public static void DoUpdate() {
             _timer.Stop();
 
             //We want to only find running containers
-            var containerListParams = new ContainersListParameters()
-            {
-                Filters = new Dictionary<string, IDictionary<string, bool>>()
+            var containerListParams = new ContainersListParameters() {
+                Filters = new Dictionary<string, IDictionary<string, bool>>() {
                 {
-                    {
-                        "status", new Dictionary<string, bool>()
-                        {
-                            {"running", true}
-                        }
-                    }
+                "status",
+                new Dictionary<string, bool>() { { "running", true }
+                }
+                }
                 }
             };
 
-            lock (_hostsEntries)
-            {
+            lock(_hostsEntries) {
                 _hostsEntries = new Dictionary<string, string>();
             }
 
             //Handle already running containers on the network
             var containers = _client.Containers.ListContainersAsync(containerListParams).Result;
 
-            foreach (var container in containers)
-            {
+            foreach (var container in containers) {
                 if (ShouldProcessContainer(container.ID))
                     AddHost(container.ID);
             }
 
             WriteHosts();
-            
+
             _timer.Start();
         }
 
@@ -249,9 +224,7 @@ namespace windows_hosts_writer
 
                 return networks.TryGetValue(_listenNetwork, out _);
 
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 Log($"Error Checking ShouldProcess: {e.Message}");
                 return false;
             }
@@ -289,14 +262,12 @@ namespace windows_hosts_writer
             }
         }
 
-
         /// <summary>
         ///  Calculates the appropriate hosts entry using all the aliases and 
         /// </summary>
         /// <param name="containerId">The ID of the container to calculate</param>
         /// <returns></returns>
-        private static string GetHostsValue(string containerId)
-        {
+        private static string GetHostsValue(string containerId) {
             var containerDetails = _client.Containers.InspectContainerAsync(containerId).Result;
 
             var hostNames = new List<string> { containerDetails.Config.Hostname };
@@ -386,11 +357,9 @@ namespace windows_hosts_writer
         /// <summary>
         /// Actually write the hosts file, only when dirty.
         /// </summary>
-        private static void WriteHosts()
-        {
+        private static void WriteHosts() {
             //Keep some sanity and don't jack with things while in flux.
-            lock (_lockobject)
-            {
+            lock(_lockobject) {
                 //Do what we need, only when we need to.
                 if (!_isDirty)
                     return;
@@ -398,9 +367,7 @@ namespace windows_hosts_writer
                 //Keep from repeating
                 _isDirty = false;
 
-
-                if (!File.Exists(_hostsPath))
-                {
+                if (!File.Exists(_hostsPath)) {
                     Log($"Could not find hosts file at: {_hostsPath}");
                     return;
                 }
@@ -410,17 +377,14 @@ namespace windows_hosts_writer
                 var newHostLines = new List<string>();
 
                 //Purge the old ones out
-                hostsLines.ForEach(l =>
-                {
-                    if (!l.EndsWith(GetTail()))
-                    {
+                hostsLines.ForEach(l => {
+                    if (!l.EndsWith(GetTail())) {
                         newHostLines.Add(l);
                     }
                 });
 
                 //Add the new ones in
-                foreach (var entry in _hostsEntries)
-                {
+                foreach (var entry in _hostsEntries) {
                     newHostLines.Add(entry.Value);
                 }
 
@@ -432,16 +396,14 @@ namespace windows_hosts_writer
         /// Returns the unique ID to identify the rows
         /// </summary>
         /// <returns></returns>
-        public static string GetTail()
-        {
+        public static string GetTail() {
             return !string.IsNullOrEmpty(_sessionId) ? $"whw-{_sessionId}" : "whw";
         }
 
         /// <summary>
         /// Cleans up the hsots file by nuking the timer and doing one last write with an empty list
         /// </summary>
-        public static void Exit()
-        {
+        public static void Exit() {
             Log("Graceful exit");
 
             _timer.Dispose();
@@ -451,15 +413,13 @@ namespace windows_hosts_writer
             WriteHosts();
         }
 
-        private static DockerClient GetClient()
-        {
+        private static DockerClient GetClient() {
             var endpoint = Environment.GetEnvironmentVariable(ENV_ENDPOINT) ?? "npipe://./pipe/docker_engine";
 
             return new DockerClientConfiguration(new Uri(endpoint)).CreateClient();
         }
 
-        private static void Log(string text)
-        {
+        private static void Log(string text) {
             Console.WriteLine($"{DateTime.Now:HH:mm:ss:fff}: {text}");
         }
     }
