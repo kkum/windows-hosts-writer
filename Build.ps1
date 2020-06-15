@@ -1,7 +1,8 @@
 ﻿[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [string] $Registry,
-    [switch] $ForceBuild
+    [switch] $ForceBuild,
+    [switch] $Push
 )
 Push-Location $PSScriptRoot
 
@@ -32,10 +33,12 @@ if ($Registry) {
         docker image tag $tag $RegistryTag;
     }
     
-    #Ensure login
-    # push the image
-    az acr login --name $Registry ;
-    docker image push $RegistryTag;
+    if($Push){
+        #Ensure login
+        # push the image
+        az acr login --name $Registry ;
+        docker image push $RegistryTag;
+    }
 }
 
 Pop-Location

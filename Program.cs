@@ -23,6 +23,12 @@ namespace windows_hosts_writer {
         //Listening to a specific network
         private static string _listenNetwork = CONST_ANYNET;
 
+        // use the service name in the list of hosts
+        private static bool _useServiceName;
+
+        // use the machine name (network_servicename_X) in the list of hosts
+        private static bool _useMachineName;
+
         //Location of the hosts file IN the container.  Mapped through a volume share to your hosts file
         private static string _hostsPath = "c:\\driversetc\\hosts";
 
@@ -60,17 +66,26 @@ namespace windows_hosts_writer {
 
         static void Main(string[] args) {
 
-            if (Environment.GetEnvironmentVariable(ENV_HOSTPATH) != null) {
+            if (Environment.GetEnvironmentVariable(ENV_HOSTPATH) != null)
+            {
+                _hostsPath = Environment.GetEnvironmentVariable(ENV_HOSTPATH);
+                Console.Write($"Overriding hosts path '{_hostsPath}'");
+            }
+
+            if (Environment.GetEnvironmentVariable(ENV_HOSTPATH) != null)
+            {
                 _hostsPath = Environment.GetEnvironmentVariable(ENV_HOSTPATH);
                 Console.Write($"Overriding hosts path '{_hostsPath}'");
             }
 
             if (Environment.GetEnvironmentVariable(ENV_NETWORK) != null) {
                 _listenNetwork = Environment.GetEnvironmentVariable(ENV_NETWORK);
+                _useServiceName = true;
                 Console.Write($"Overriding listen network '{_listenNetwork}'");
             }
             else
             {
+                _useMachineName = true;
                 Console.WriteLine("Listening to any network");
             }
 
@@ -269,8 +284,16 @@ namespace windows_hosts_writer {
         /// <returns></returns>
         private static string GetHostsValue(string containerId) {
             var containerDetails = _client.Containers.InspectContainerAsync(containerId).Result;
+            
+            var hostNames = new List<string> ();
 
-            var hostNames = new List<string> { containerDetails.Config.Hostname };
+            if (_useServiceName){ 
+                hostNames.Add(containerDetails.Config.Hostname);
+            }
+            if (_useMachineName)
+            {
+                hostNames.Add(containerDetails.Name.TrimStart('/')); 
+            }
 
             var IP = "";
 
